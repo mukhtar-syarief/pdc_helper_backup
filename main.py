@@ -1,4 +1,5 @@
 from google.cloud import storage
+from typing import List, Any
 import io
 import contextlib
 import traceback
@@ -53,10 +54,12 @@ class HelperBackup:
     def run_query(self, query: str):
         with self.db.get_connection() as db:
             data = db.execute(query)
-            return self.write_file_csv(data.fetchall())        
+            header = [desc[0] for desc in data.description]
+            return self.write_file_csv(data.fetchall(), header)        
             
-    def write_file_csv(self, datas):
+    def write_file_csv(self, datas: List[Any], header: List[str]):
         list_data = []
+        list_data.append(",".join(header))
         for data in datas:
             data_list= list(data)
             data_str = ",".join(map(str, data_list))
@@ -68,44 +71,10 @@ class HelperBackup:
     
 if __name__ == "__main__":
     
-    query = "SELECT * FROM akun JOIN orders WHERE akun.id = orders.shop_id"
+    query = "SELECT * FROM akun INNER JOIN orders WHERE akun.id = orders.shop_id LIMIT 10"
     helper = HelperBackup("data/database.db", "tokped_research")
     
     with helper.run_query(query) as query:
         path = "csv/test/databackup.csv"
         res = query.upload(path)
         print(res)
-        
-    # from pprint import pprint
-    # with open("orders.csv", "r") as order:
-    #     datas = order.read().split("\n")
-    #     for data in datas:
-    #         data = data.split(",")
-    #         pprint(data)
-    
-    
-# class Database:
-#     def __init__(self, db_name: str) -> None:
-#         self.DATABASE_URI = os.environ.get('DATABASE_URI', f'sqlite://{db_name}')
-        
-#     def set_session(self):
-#         engine = create_engine(
-#             self.DATABASE_URI,
-#             connect_args={"check_same_thread": False}
-#         )
-
-#         Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-#         return engine
-    
-#     @contextlib.contextmanager
-#     def get_db(self):
-#         engine = self.set_session()
-#         db = engine.connect()
-#         try:
-#             # print("get_db")
-#             yield db
-#         except Exception as e:
-#             db.rollback()
-#             traceback.print_exc()
-#         finally:
-#             db.close()
