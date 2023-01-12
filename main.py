@@ -1,4 +1,5 @@
 from google.cloud import storage
+from google.oauth2 import service_account
 from typing import List, Any
 import io
 import contextlib
@@ -22,10 +23,15 @@ class DatabaseSQLite:
 class GoogleUpload:
     client = storage.Client
     
-    def __init__(self, file: bytes, bucketname: str = "tokped_research", credentials = None) -> None:
+    def __init__(self, file: bytes, bucketname: str, credentials: str = "credentials.json") -> None:
         self.file = file
-        self.client = storage.Client(credentials=credentials)
         self.CLOUD_STORAGE_BUCKET = bucketname
+        self.set_credentials(credentials)
+        
+        
+    def set_credentials(self, credentials: str):
+        credentials = service_account.Credentials.from_service_account_file(credentials)
+        self.client = storage.Client(credentials=credentials)
 
     def upload(self, path: str = "test/backup.csv"):
         bucket = self.client.get_bucket(self.CLOUD_STORAGE_BUCKET)
@@ -43,10 +49,10 @@ class GoogleUpload:
 
 class HelperBackup:
     
-    def __init__(self, db_name: str, bucketname: str, credential = None) -> None:
+    def __init__(self, db_name: str, bucketname: str, credentials: str = None) -> None:
         self.db_name = db_name
         self.bucketname = bucketname
-        self.credentiala = credential 
+        self.credentials = credentials
         self.db = DatabaseSQLite(self.db_name)
         self.upload = GoogleUpload
         
@@ -66,15 +72,15 @@ class HelperBackup:
             list_data.append(data_str)
         data_str = "\n".join(list_data)
         file_bytes = io.BytesIO(data_str.encode("utf-8"))
-        yield self.upload(file=file_bytes.read(), bucketname=self.bucketname, credentials = self.credentiala)
+        yield self.upload(file=file_bytes.read(), bucketname=self.bucketname, credentials = self.credentials)
     
     
 if __name__ == "__main__":
     
     query = "SELECT * FROM akun INNER JOIN orders WHERE akun.id = orders.shop_id LIMIT 10"
-    helper = HelperBackup("data/database.db", "tokped_research")
-    
+    helper = HelperBackup("data/database.db", "research_ai", "data/credentials.json")
+
     with helper.run_query(query) as query:
-        path = "csv/test/databackup.csv"
+        path = "test/databackup.csv"
         res = query.upload(path)
         print(res)
