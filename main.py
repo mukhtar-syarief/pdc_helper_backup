@@ -5,6 +5,7 @@ import io
 import contextlib
 import traceback
 import sqlite3
+import csv
 
 class DatabaseSQLite:
     def __init__(self, db_name: str) -> None:
@@ -64,21 +65,18 @@ class HelperBackup:
             return self.write_file_csv(data.fetchall(), header)        
             
     def write_file_csv(self, datas: List[Any], header: List[str]):
-        list_data = []
-        list_data.append(",".join(header))
-        for data in datas:
-            data_list= list(data)
-            data_str = ",".join(map(str, data_list))
-            list_data.append(data_str)
-        data_str = "\n".join(list_data)
-        file_bytes = io.BytesIO(data_str.encode("utf-8"))
-        yield self.upload(file=file_bytes.read(), bucketname=self.bucketname, credentials = self.credentials)
+        with io.StringIO() as file:
+            writer = csv.writer(file)
+            writer.writerow(header)
+            for data in datas:
+                writer.writerow(data)
+            yield self.upload(file=file.getvalue(), bucketname=self.bucketname, credentials = self.credentials)    
     
     
 if __name__ == "__main__":
     
-    query = "SELECT * FROM akun INNER JOIN orders WHERE akun.id = orders.shop_id LIMIT 10"
-    helper = HelperBackup("data/database.db", "research_ai", "data/credentials.json")
+    query = "SELECT * FROM orders"
+    helper = HelperBackup("data/database.db", "research_ai", "credentials.json")
 
     with helper.run_query(query) as query:
         path = "test/databackup.csv"
